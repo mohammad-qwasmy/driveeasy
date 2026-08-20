@@ -57,6 +57,7 @@ class _LicenseTypesScreenState extends State<LicenseTypesScreen> {
                       .add({
                     "name": controller.text.trim(),
                     "createdAt": Timestamp.now(),
+                    "isDeleted": false,
                   });
 
                 } else {
@@ -82,13 +83,39 @@ class _LicenseTypesScreenState extends State<LicenseTypesScreen> {
     );
   }
 
+  // Soft delete: the license type and everything stored inside its document
+  // (and any subcollections/references to it elsewhere) stay untouched -
+  // we just flag it as deleted and hide it from the main list, so it can
+  // be fully restored later with all its data intact.
   Future<void> deleteLicense(String id) async {
 
     await firestore
         .collection("license_types")
         .doc(id)
-        .delete();
+        .update({
+      "isDeleted": true,
+      "deletedAt": Timestamp.now(),
+    });
 
+  }
+
+  Future<void> restoreLicense(String id) async {
+    await firestore
+        .collection("license_types")
+        .doc(id)
+        .update({
+      "isDeleted": false,
+      "deletedAt": FieldValue.delete(),
+    });
+  }
+
+  void _showDeletedLicenses() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const _DeletedLicensesScreen(),
+      ),
+    );
   }
 
   @override
@@ -99,6 +126,13 @@ class _LicenseTypesScreenState extends State<LicenseTypesScreen> {
       appBar: AppBar(
         title: const Text("أنواع الرخص"),
         backgroundColor: Colors.blue,
+        actions: [
+          IconButton(
+            tooltip: "الرخص المحذوفة",
+            icon: const Icon(Icons.restore_from_trash),
+            onPressed: _showDeletedLicenses,
+          ),
+        ],
       ),
 
       floatingActionButton: FloatingActionButton(
@@ -126,7 +160,9 @@ class _LicenseTypesScreenState extends State<LicenseTypesScreen> {
             );
           }
 
-          final licenses = snapshot.data!.docs;
+          final licenses = snapshot.data!.docs
+              .where((doc) => (doc.data() as Map<String, dynamic>)["isDeleted"] != true)
+              .toList();
 
           if (licenses.isEmpty) {
             return const Center(
@@ -190,9 +226,37 @@ class _LicenseTypesScreenState extends State<LicenseTypesScreen> {
                           Icons.delete,
                           color: Colors.red,
                         ),
-                        onPressed: () {
+                        onPressed: () async {
 
-                          deleteLicense(license.id);
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text("حذف نوع الرخصة"),
+                              content: Text(
+                                "هل تريد حذف \"${license["name"]}\"؟ يمكنك استعادتها لاحقاً من قائمة المحذوفات.",
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: const Text("إلغاء"),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: const Text("حذف", style: TextStyle(color: Colors.red)),
+                                ),
+                              ],
+                            ),
+                          );
+
+                          if (confirmed != true) return;
+
+                          await deleteLicense(license.id);
+
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("تم الحذف، يمكنك استعادته من قائمة المحذوفات")),
+                            );
+                          }
 
                         },
                       ),
@@ -205,6 +269,83 @@ class _LicenseTypesScreenState extends State<LicenseTypesScreen> {
             },
           );
 
+        },
+      ),
+    );
+  }
+}
+
+class _DeletedLicensesScreen extends StatelessWidget {
+  const _DeletedLicensesScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    final firestore = FirebaseFirestore.instance;
+
+    Future<void> restore(String id) async {
+      await firestore.collection("license_types").doc(id).update({
+        "isDeleted": false,
+        "deletedAt": FieldValue.delete(),
+      });
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("أنواع الرخص المحذوفة"),
+        backgroundColor: Colors.blue,
+      ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: firestore
+            .collection("license_types")
+            .where("isDeleted", isEqualTo: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(child: Text("حدث خطأ: ${snapshot.error}"));
+          }
+
+          final deleted = snapshot.data?.docs ?? [];
+
+          if (deleted.isEmpty) {
+            return const Center(
+              child: Text("لا يوجد أنواع رخص محذوفة", style: TextStyle(fontSize: 16)),
+            );
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(12),
+            itemCount: deleted.length,
+            itemBuilder: (context, index) {
+              final doc = deleted[index];
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                child: ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Colors.grey,
+                    child: Icon(Icons.drive_eta, color: Colors.white),
+                  ),
+                  title: Text(doc["name"] ?? ""),
+                  trailing: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                    onPressed: () async {
+                      await restore(doc.id);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("تم استرجاع نوع الرخصة وكل بياناته")),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.restore, color: Colors.white, size: 16),
+                    label: const Text("استعادة", style: TextStyle(color: Colors.white)),
+                  ),
+                ),
+              );
+            },
+          );
         },
       ),
     );

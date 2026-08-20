@@ -222,7 +222,7 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text("حذف الطالب"),
         content: Text(
-          "هل أنت متأكد من حذف $studentName من قائمة طلابك؟ ستبقى بياناته وسجل دروسه محفوظة، ويمكنه الارتباط بمدرب آخر لنفس نوع الرخصة.",
+          "هل أنت متأكد من حذف $studentName من قائمة طلابك؟ ستبقى بياناته وسجل دروسه محفوظة، ويمكنه التسجيل مع مدرب آخر لنفس نوع الرخصة.",
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("إلغاء")),
@@ -322,7 +322,7 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text("تعذر تحميل بيانات الارتباط:\n${linkSnap.error}",
+                child: Text("تعذر تحميل بيانات التسجيل:\n${linkSnap.error}",
                     textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
               ),
             );

@@ -9,6 +9,7 @@ import 'edit_profile_screen.dart';
 import 'change_password_screen.dart';
 import 'teacher_monthly_lessons_screen.dart';
 import '../services/app_language.dart';
+import '../services/support_contact.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -32,7 +33,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   int bookings = 0;
   int lessons = 0;
-  int rating = 0;
+  double rating = 0;
 
   @override
   void initState() {
@@ -69,7 +70,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       bookings = doc["bookings"] ?? 0;
       lessons = doc["lessons"] ?? 0;
-      rating = doc["rating"] ?? 0;
+      rating = ((doc["rating"] ?? 0) as num).toDouble();
 
       isLoading = false;
     });
@@ -133,6 +134,78 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (chosen != null) {
       await AppLanguage.setLanguage(chosen);
+    }
+  }
+
+  Future<void> _confirmDeleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: const [
+            Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
+            SizedBox(width: 8),
+            Expanded(child: Text("حذف الحساب")),
+          ],
+        ),
+        content: const Text(
+          "سيتم تعطيل حسابك فوراً ولن تتمكن من استخدام التطبيق به.\n\n"
+          "بياناتك تبقى محفوظة لمدة 30 يوماً فقط — يمكنك خلال هذه الفترة استرجاع حسابك بنفسك "
+          "بمجرد تسجيل الدخول به مرة أخرى.\n\n"
+          "بعد مرور 30 يوماً، سيتم حذف حسابك وكل بياناتك نهائياً بشكل لا يمكن التراجع عنه.",
+          style: TextStyle(height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("إلغاء"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("نعم، احذف حسابي", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      final now = DateTime.now();
+      await FirebaseFirestore.instance.collection("users").doc(user.uid).update({
+        "isDeleted": true,
+        "deletedAt": Timestamp.fromDate(now),
+        "purgeAt": Timestamp.fromDate(now.add(const Duration(days: 30))),
+      });
+
+      await FirebaseAuth.instance.signOut();
+
+      if (!mounted) return;
+      Navigator.pop(context); // close loading dialog
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // close loading dialog
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("تعذر حذف الحساب: $e")),
+      );
     }
   }
 
@@ -292,7 +365,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(width: 12),
                   buildStatCard(
                     role == "teacher" ? tr("rating") : tr("bookings"),
-                    role == "teacher" ? rating.toString() : bookings.toString(),
+                    role == "teacher" ? rating.toStringAsFixed(1) : bookings.toString(),
                     role == "teacher" ? Icons.star : Icons.calendar_month,
                   ),
                 ],
@@ -379,6 +452,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 },
                 icon: const Icon(Icons.logout),
                 label: Text(tr("logout")),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(foregroundColor: Colors.green.shade700),
+                onPressed: () => openWhatsAppSupport(),
+                icon: const Icon(Icons.chat),
+                label: const Text("تواصل معنا عبر واتساب"),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red),
+                ),
+                onPressed: _confirmDeleteAccount,
+                icon: const Icon(Icons.delete_forever),
+                label: const Text("حذف الحساب"),
               ),
             ),
           ],

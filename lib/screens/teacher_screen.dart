@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'public_profile_screen.dart';
+
 /// Lets a student browse teachers for one specific [licenseType] and send a
 /// link request. A student can have several license types over time, each
 /// with its own teacher, so this always operates on one type at a time.
@@ -43,7 +45,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("تم إرسال طلب الارتباط بنجاح")),
+      const SnackBar(content: Text("تم إرسال طلب التسجيل بنجاح")),
     );
     Navigator.pop(context);
   }
@@ -106,9 +108,26 @@ class _TeacherScreenState extends State<TeacherScreen> {
                             "${data["phone"] ?? ""}"
                             "${(data["city"] ?? "").toString().isNotEmpty ? " · ${data["city"]}" : ""}",
                           ),
-                          trailing: selected
-                              ? const Icon(Icons.check_circle, color: Colors.blue)
-                              : const Icon(Icons.circle_outlined),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                tooltip: "عرض الملف الشخصي",
+                                icon: const Icon(Icons.remove_red_eye_outlined, color: Colors.blue),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => PublicProfileScreen(userId: teacher.id),
+                                    ),
+                                  );
+                                },
+                              ),
+                              selected
+                                  ? const Icon(Icons.check_circle, color: Colors.blue)
+                                  : const Icon(Icons.circle_outlined),
+                            ],
+                          ),
                           onTap: () {
                             setState(() {
                               selectedTeacherId = teacher.id;
@@ -125,7 +144,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: selectedTeacherId == null ? null : sendRequest,
-                    child: const Text("إرسال طلب ارتباط"),
+                    child: const Text("إرسال طلب تسجيل"),
                   ),
                 ),
               ],

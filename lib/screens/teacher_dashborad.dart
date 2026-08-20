@@ -6,6 +6,8 @@ import 'teacher_schedule_screen.dart';
 import 'teacher_bookings_screen.dart';
 import 'teacher_requests_screen.dart';
 import 'teacher_students_screen.dart';
+import 'teacher_message_students_screen.dart';
+import 'notifications_screen.dart';
 import 'teacher_calendar_screen.dart';
 import 'profile_screen.dart';
 import '../services/app_language.dart';
@@ -62,6 +64,54 @@ class TeacherDashboard extends StatelessWidget {
       appBar: AppBar(
         title: Text(tr("teacher_dashboard_title")),
         centerTitle: true,
+        actions: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                  );
+                },
+                icon: const Icon(Icons.notifications_none_rounded),
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection("notifications")
+                      .where("userId", isEqualTo: teacherId)
+                      .where("read", isEqualTo: false)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    final count = snapshot.data?.docs.length ?? 0;
+                    if (count == 0) return const SizedBox.shrink();
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      child: Text(
+                        "$count",
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -126,6 +176,13 @@ class TeacherDashboard extends StatelessWidget {
               icon: Icons.groups_rounded,
               color: Colors.purple,
               destination: const TeacherStudentsScreen(),
+            ),
+            dashboardTile(
+              context: context,
+              title: "مراسلة الطلاب",
+              icon: Icons.campaign_rounded,
+              color: Colors.deepOrange,
+              destination: const TeacherMessageStudentsScreen(),
             ),
             dashboardTile(
               context: context,

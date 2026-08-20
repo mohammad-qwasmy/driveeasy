@@ -26,7 +26,7 @@ class _TeacherRequestsScreenState extends State<TeacherRequestsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: CountLabel(text: "طلبات الارتباط", stream: requestsStream),
+        title: CountLabel(text: "طلبات التسجيل", stream: requestsStream),
         centerTitle: true,
       ),
       body: Column(
@@ -56,7 +56,7 @@ class _TeacherRequestsScreenState extends State<TeacherRequestsScreen> {
                 }
 
                 if (snapshot.data!.docs.isEmpty) {
-                  return const Center(child: Text("لا توجد طلبات ارتباط"));
+                  return const Center(child: Text("لا توجد طلبات تسجيل"));
                 }
 
                 final requests = snapshot.data!.docs;
@@ -137,7 +137,7 @@ class _TeacherRequestsScreenState extends State<TeacherRequestsScreen> {
 
                                           await sendNotification(
                                             userId: student.id,
-                                            title: "تم قبول طلب الارتباط",
+                                            title: "تم قبول طلب التسجيل",
                                             body: "أصبحت مرتبطاً الآن بالمدرب لرخصة $licenseType، يمكنك حجز دروسك.",
                                             type: "link_approved",
                                           );

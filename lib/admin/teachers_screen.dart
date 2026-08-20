@@ -51,6 +51,13 @@ class _TeachersScreenState extends State<TeachersScreen> {
           stream: users.where("role", isEqualTo: "teacher").snapshots(),
         ),
         backgroundColor: Colors.blue,
+        actions: [
+          IconButton(
+            tooltip: "المدربون المحذوفون",
+            icon: const Icon(Icons.restore_from_trash),
+            onPressed: () => _showDeletedTeachers(context),
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -84,7 +91,9 @@ class _TeachersScreenState extends State<TeachersScreen> {
                   );
                 }
 
-                var teachers = snapshot.data!.docs;
+                var teachers = snapshot.data!.docs
+                    .where((doc) => (doc.data() as Map<String, dynamic>)["isDeleted"] != true)
+                    .toList();
 
                 if (searchQuery.isNotEmpty) {
                   teachers = teachers.where((doc) {
@@ -233,7 +242,20 @@ class _TeachersScreenState extends State<TeachersScreen> {
                                       await FirebaseFirestore.instance
                                           .collection("users")
                                           .doc(docId)
-                                          .delete();
+                                          .update({
+                                        "isDeleted": true,
+                                        "deletedAt": Timestamp.now(),
+                                      });
+
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              "تم حذف المدرب، يمكنك استعادته من قائمة المحذوفين",
+                                            ),
+                                          ),
+                                        );
+                                      }
                                     },
                                     icon: const Icon(Icons.delete, color: Colors.white, size: 16),
                                     label: const Text("حذف", style: TextStyle(color: Colors.white, fontSize: 13)),
@@ -280,6 +302,90 @@ class _TeachersScreenState extends State<TeachersScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showDeletedTeachers(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const _DeletedTeachersScreen(),
+      ),
+    );
+  }
+}
+
+class _DeletedTeachersScreen extends StatelessWidget {
+  const _DeletedTeachersScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    final users = FirebaseFirestore.instance.collection("users");
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("المدربون المحذوفون"),
+        backgroundColor: Colors.blue,
+      ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: users
+            .where("role", isEqualTo: "teacher")
+            .where("isDeleted", isEqualTo: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(child: Text("حدث خطأ: ${snapshot.error}"));
+          }
+
+          final deleted = snapshot.data?.docs ?? [];
+
+          if (deleted.isEmpty) {
+            return const Center(
+              child: Text("لا يوجد مدربون محذوفون", style: TextStyle(fontSize: 16)),
+            );
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(12),
+            itemCount: deleted.length,
+            itemBuilder: (context, index) {
+              final doc = deleted[index];
+              final data = doc.data() as Map<String, dynamic>;
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                child: ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Colors.grey,
+                    child: Icon(Icons.person, color: Colors.white),
+                  ),
+                  title: Text(data["name"] ?? ""),
+                  subtitle: Text(data["email"] ?? ""),
+                  trailing: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                    onPressed: () async {
+                      await users.doc(doc.id).update({
+                        "isDeleted": false,
+                        "deletedAt": FieldValue.delete(),
+                      });
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("تم استرجاع المدرب")),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.restore, color: Colors.white, size: 16),
+                    label: const Text("استعادة", style: TextStyle(color: Colors.white)),
+                  ),
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }

@@ -6,9 +6,6 @@ import 'registration_requests_screen.dart';
 import 'teachers_screen.dart';
 import 'license_types_screen.dart';
 import 'schools_screen.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import '../screens/login_screen.dart';
-import '../screens/profile_screen.dart';
 import '../services/app_language.dart';
 import 'super_admins_screen.dart';
 
@@ -129,43 +126,6 @@ class AdminManagementScreen extends StatelessWidget {
                           builder: (_) => const SuperAdminsScreen(),
                         ),
                       );
-                    },
-                  ),
-
-                  AdminButton(
-                    icon: Icons.person,
-                    title: tr("my_profile"),
-                    subtitle: tr("profile_sub"),
-                    color: Colors.indigo,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const ProfileScreen(),
-                        ),
-                      );
-                    },
-                  ),
-
-                  AdminButton(
-                    icon: Icons.logout,
-                    title: tr("logout"),
-                    subtitle: tr("logout_sub"),
-                    color: Colors.black,
-                    onTap: () async {
-
-                      await FirebaseAuth.instance.signOut();
-
-                      if (!context.mounted) return;
-
-                      Navigator.pushAndRemoveUntil(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const LoginScreen(),
-                        ),
-                            (route) => false,
-                      );
-
                     },
                   ),
 

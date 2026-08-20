@@ -45,7 +45,7 @@ class _MyPlanScreenState extends State<MyPlanScreen> {
             return const Center(
               child: Padding(
                 padding: EdgeInsets.all(20),
-                child: Text("لا يوجد لديك خطة بعد — يجب الارتباط بمدرب أولاً", textAlign: TextAlign.center),
+                child: Text("لا يوجد لديك خطة بعد — يجب التسجيل مع مدرب أولاً", textAlign: TextAlign.center),
               ),
             );
           }

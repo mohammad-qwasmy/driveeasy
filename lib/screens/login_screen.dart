@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'register_screen.dart';
 import 'home/home_screen.dart';
 import 'teacher_dashborad.dart';
 import 'super_admin_screen.dart';
 import '../services/app_language.dart';
+import '../services/support_contact.dart';
 import 'email_verification_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -25,6 +28,38 @@ class _LoginScreenState extends State<LoginScreen> {
   bool isLoading = false;
   bool hidePassword = true;
   bool rememberMe = false;
+
+  static const _rememberedEmailKey = "remembered_email";
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRememberedEmail();
+  }
+
+  Future<void> _loadRememberedEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedEmail = prefs.getString(_rememberedEmailKey);
+    if (savedEmail != null && savedEmail.isNotEmpty) {
+      if (!mounted) return;
+      // Guard against a race: if the user already started typing before
+      // this async load resolved, never overwrite what they typed.
+      if (emailController.text.isNotEmpty) return;
+      setState(() {
+        emailController.text = savedEmail;
+        rememberMe = true;
+      });
+    }
+  }
+
+  Future<void> _persistRememberMe() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (rememberMe) {
+      await prefs.setString(_rememberedEmailKey, emailController.text.trim());
+    } else {
+      await prefs.remove(_rememberedEmailKey);
+    }
+  }
 
   @override
   void dispose() {
@@ -78,6 +113,40 @@ class _LoginScreenState extends State<LoginScreen> {
           .get();
 
       String role = userDoc["role"];
+
+      final userData = userDoc.data() as Map<String, dynamic>? ?? {};
+      if (userData["isDeleted"] == true) {
+        final purgeAtTs = userData["purgeAt"] as Timestamp?;
+        final deletedAtTs = userData["deletedAt"] as Timestamp?;
+
+        if (purgeAtTs != null && purgeAtTs.toDate().isAfter(DateTime.now())) {
+          if (!mounted) return;
+          final restored = await showAccountRestoreDialog(
+            context: context,
+            uid: userCredential.user!.uid,
+            deletedAt: deletedAtTs?.toDate() ?? DateTime.now(),
+            purgeAt: purgeAtTs.toDate(),
+          );
+
+          if (!restored) {
+            await FirebaseAuth.instance.signOut();
+            if (mounted) setState(() => isLoading = false);
+            return;
+          }
+          // Restored successfully — fall through to normal role routing below.
+        } else {
+          // Recovery window has passed.
+          await FirebaseAuth.instance.signOut();
+          if (!mounted) return;
+          setState(() => isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("هذا الحساب لم يعد متاحاً.")),
+          );
+          return;
+        }
+      }
+
+      await _persistRememberMe();
 
       if (!mounted) return;
 
@@ -192,16 +261,18 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextFormField(
                     controller: emailController,
                     keyboardType: TextInputType.emailAddress,
+                    textCapitalization: TextCapitalization.none,
+                    autofillHints: const [AutofillHints.email],
                     decoration: InputDecoration(
                       labelText: tr("email"),
                       prefixIcon: const Icon(Icons.email),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
                     ),
                     validator: (value) {
-                      if (value == null || value.isEmpty) {
+                      if (value == null || value.trim().isEmpty) {
                         return "أدخل البريد الإلكتروني";
                       }
-                      if (!value.contains("@")) {
+                      if (!value.trim().contains("@")) {
                         return "البريد الإلكتروني غير صحيح";
                       }
                       return null;

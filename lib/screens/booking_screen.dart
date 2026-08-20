@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../services/app_helpers.dart';
 import '../widgets/month_calendar.dart';
+import 'public_profile_screen.dart';
 
 class BookingScreen extends StatefulWidget {
   const BookingScreen({super.key});
@@ -64,6 +65,12 @@ class _BookingScreenState extends State<BookingScreen> {
   /// students can never take the same slot and the same student can't
   /// double-book one. Slots that got taken in the meantime are reported
   /// back instead of silently failing.
+  ///
+  /// Also guards against a student booking two lessons at the exact same
+  /// date/time with two *different* teachers (e.g. one teacher per license
+  /// type): before confirming each slot we check the student's own
+  /// pending/approved bookings (across all teachers) for a same date+time
+  /// match, and skip that slot with a clear message if one is found.
   Future<void> confirmBooking() async {
     if (selectedSlotIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -84,11 +91,45 @@ class _BookingScreenState extends State<BookingScreen> {
     int succeeded = 0;
     final failedMessages = <String>[];
 
+    // Snapshot of the student's own active bookings (any teacher) as
+    // "date|time" keys, so we can catch same-time conflicts across
+    // different teachers. Updated as we succeed within this same
+    // submission too, so booking two conflicting slots in one go is
+    // also blocked.
+    final existingBookingsSnap = await firestore
+        .collection("bookings")
+        .where("studentId", isEqualTo: user.uid)
+        .where("status", whereIn: ["pending", "approved"])
+        .get();
+
+    final bookedTimeKeys = <String>{
+      for (final doc in existingBookingsSnap.docs)
+        "${(doc.data())["date"]}|${(doc.data())["time"]}",
+    };
+
     for (final slotId in selectedSlotIds.toList()) {
       final slotRef = firestore.collection("teacher_slots").doc(slotId);
       final bookingRef = firestore.collection("bookings").doc();
 
       try {
+        // Read the slot first (outside the transaction) just to check for
+        // a same-time conflict with the student's other bookings. The
+        // transaction below still re-verifies availability atomically.
+        final preCheckSnap = await slotRef.get();
+        if (!preCheckSnap.exists) {
+          throw Exception("موعد لم يعد موجوداً");
+        }
+        final preCheckData = preCheckSnap.data() as Map<String, dynamic>;
+        final slotDate = preCheckData["date"] ?? "";
+        final slotTime = "${preCheckData["startTime"]} - ${preCheckData["endTime"]}";
+        final timeKey = "$slotDate|$slotTime";
+
+        if (bookedTimeKeys.contains(timeKey)) {
+          throw Exception(
+            "لديك موعد آخر محجوز في نفس الوقت (${preCheckData["startTime"]}) بتاريخ ${preCheckData["date"]}",
+          );
+        }
+
         await firestore.runTransaction((transaction) async {
           final slotSnap = await transaction.get(slotRef);
 
@@ -120,6 +161,16 @@ class _BookingScreenState extends State<BookingScreen> {
           });
         });
         succeeded++;
+        bookedTimeKeys.add(timeKey);
+
+        final studentDoc = await firestore.collection("users").doc(user.uid).get();
+        final studentName = (studentDoc.data() as Map<String, dynamic>?)?["name"] ?? "طالب";
+        await sendNotification(
+          userId: link["teacherId"],
+          title: "طلب حجز جديد",
+          body: "$studentName يطلب حجز درس، بانتظار موافقتك.",
+          type: "booking_requested",
+        );
       } catch (e) {
         failedMessages.add(e.toString().replaceAll("Exception: ", ""));
       }
@@ -155,7 +206,7 @@ class _BookingScreenState extends State<BookingScreen> {
           child: Padding(
             padding: EdgeInsets.all(20),
             child: Text(
-              "لا يمكنك حجز درس حتى تتم الموافقة على طلب الارتباط من مدرب.",
+              "لا يمكنك حجز درس حتى تتم الموافقة على طلب التسجيل من مدرب.",
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red),
             ),
@@ -200,13 +251,41 @@ class _BookingScreenState extends State<BookingScreen> {
                   },
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => PublicProfileScreen(userId: teacherId),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.remove_red_eye_outlined, size: 18),
+                  label: const Text("عرض ملف المدرب المختار"),
+                ),
+              ),
+              const SizedBox(height: 8),
             ] else
               Card(
                 child: ListTile(
                   leading: const CircleAvatar(child: Icon(Icons.person)),
                   title: Text(link["teacherName"]),
                   subtitle: Text("رخصة ${link["licenseType"]}"),
+                  trailing: IconButton(
+                    tooltip: "عرض الملف الشخصي",
+                    icon: const Icon(Icons.remove_red_eye_outlined, color: Colors.blue),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PublicProfileScreen(userId: teacherId),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
             const SizedBox(height: 16),

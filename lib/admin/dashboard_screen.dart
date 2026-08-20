@@ -10,6 +10,7 @@ import 'widgets/dashboard_header.dart';
 import 'widgets/dashboard_stats.dart';
 import 'widgets/dashboard_action_button.dart';
 import 'admin_management_screen.dart';
+import 'send_message_screen.dart';
 import 'services/admin_service.dart';
 import '../screens/profile_screen.dart';
 import '../services/app_language.dart';
@@ -135,6 +136,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     MaterialPageRoute(
                       builder: (_) =>
                       const AdminManagementScreen(),
+                    ),
+                  );
+                },
+              ),
+
+              const SizedBox(height: 12),
+              DashboardActionButton(
+                title: "إرسال رسالة",
+                icon: Icons.campaign,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const SendMessageScreen(),
                     ),
                   );
                 },

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'email_verification_screen.dart';
@@ -86,6 +87,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         "schoolName": selectedRole == "teacher" ? teacherSchoolName : "",
         "teacherId": "",
         "rating": 0.0,
+        "ratingCount": 0,
         "lessons": 0,
         "bookings": 0,
         "city": "",
@@ -189,14 +191,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextFormField(
                   controller: emailController,
                   keyboardType: TextInputType.emailAddress,
+                  textCapitalization: TextCapitalization.none,
+                  autofillHints: const [AutofillHints.email],
                   decoration: InputDecoration(
                     labelText: tr("email"),
                     prefixIcon: const Icon(Icons.email),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) return "أدخل البريد الإلكتروني";
-                    if (!value.contains("@")) return "البريد الإلكتروني غير صحيح";
+                    if (value == null || value.trim().isEmpty) return "أدخل البريد الإلكتروني";
+                    if (!value.trim().contains("@")) return "البريد الإلكتروني غير صحيح";
                     return null;
                   },
                 ),

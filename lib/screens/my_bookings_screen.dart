@@ -126,7 +126,14 @@ class _BookingsList extends StatelessWidget {
 
   const _BookingsList({required this.docs, required this.kind, required this.emptyMessage});
 
-  Future<void> _cancelPending(BuildContext context, String bookingId, String slotId) async {
+  Future<void> _cancelPending(
+    BuildContext context,
+    String bookingId,
+    String slotId,
+    String teacherId,
+    String dateStr,
+    String time,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -148,6 +155,16 @@ class _BookingsList extends StatelessWidget {
     await firestore.collection("bookings").doc(bookingId).update({"status": "rejected"});
     if (slotId.isNotEmpty) {
       await firestore.collection("teacher_slots").doc(slotId).update({"status": "available"});
+    }
+
+    if (teacherId.isNotEmpty) {
+      await sendNotification(
+        userId: teacherId,
+        title: "تم إلغاء طلب حجز",
+        body:
+            "قام الطالب بإلغاء طلب حجزه ليوم ${dateStr.isNotEmpty ? formatIsoDateArabic(dateStr) : ''} الساعة $time.",
+        type: "booking_cancelled",
+      );
     }
   }
 
@@ -322,7 +339,14 @@ class _BookingsList extends StatelessWidget {
                           data["time"] ?? "",
                         );
                       } else {
-                        _cancelPending(context, booking.id, data["slotId"] ?? "");
+                        _cancelPending(
+                          context,
+                          booking.id,
+                          data["slotId"] ?? "",
+                          data["teacherId"] ?? "",
+                          dateStr,
+                          data["time"] ?? "",
+                        );
                       }
                     },
                     icon: const Icon(Icons.delete_outline, size: 16),

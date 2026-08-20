@@ -67,7 +67,7 @@ String tr(String key) {
 
 const Map<String, Map<String, String>> _strings = {
   "app_name": {"ar": "DriveEasy", "en": "DriveEasy", "he": "DriveEasy"},
-  "welcome_back": {"ar": "مرحبًا بعودتك", "en": "Welcome back", "he": "ברוך שובך"},
+  "welcome_back": {"ar": "أهلاً بك", "en": "Welcome", "he": "ברוכים הבאים"},
   "email": {"ar": "البريد الإلكتروني", "en": "Email", "he": "אימייל"},
   "password": {"ar": "كلمة المرور", "en": "Password", "he": "סיסמה"},
   "login": {"ar": "تسجيل الدخول", "en": "Log in", "he": "התחברות"},
@@ -98,7 +98,7 @@ const Map<String, Map<String, String>> _strings = {
   "teacher_dashboard_title": {"ar": "لوحة تحكم المدرب", "en": "Teacher dashboard", "he": "לוח בקרה למדריך"},
   "my_schedule": {"ar": "جدول عملي", "en": "My schedule", "he": "לוח הזמנים שלי"},
   "my_calendar": {"ar": "جدولي", "en": "My calendar", "he": "היומן שלי"},
-  "link_requests": {"ar": "طلبات الارتباط", "en": "Link requests", "he": "בקשות שיוך"},
+  "link_requests": {"ar": "طلبات التسجيل", "en": "Registration requests", "he": "בקשות רישום"},
   "booking_requests": {"ar": "طلبات الحجز", "en": "Booking requests", "he": "בקשות הזמנה"},
   "my_students": {"ar": "طلابي", "en": "My students", "he": "התלמידים שלי"},
   "my_profile": {"ar": "الملف الشخصي", "en": "My profile", "he": "הפרופיל שלי"},

@@ -10,6 +10,7 @@ import '../my_plan_screen.dart';
 import '../my_lessons_screen.dart';
 import '../chat_screen.dart';
 import '../teacher_link_screen.dart';
+import '../public_profile_screen.dart';
 import '../../services/app_helpers.dart';
 import '../../services/app_language.dart';
 
@@ -88,7 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _openChat() async {
     if (myLinks.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("يجب الارتباط بمدرب أولاً لبدء المحادثة")),
+        const SnackBar(content: Text("يجب التسجيل مع مدرب أولاً لبدء المحادثة")),
       );
       return;
     }
@@ -218,6 +219,42 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(height: 14),
+
+            // My teacher(s) — quick access to view their profile and rate
+            // them, reachable directly from the student's home screen
+            // instead of only through the booking flow.
+            if (myLinks.isNotEmpty)
+              Card(
+                elevation: 1.5,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                margin: const EdgeInsets.only(bottom: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(14, 12, 14, 4),
+                      child: Text(
+                        "مدربي",
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                    ),
+                    ...myLinks.map((link) => ListTile(
+                          leading: const CircleAvatar(child: Icon(Icons.person)),
+                          title: Text(link["teacherName"] ?? ""),
+                          subtitle: Text("رخصة ${link["licenseType"] ?? ""}"),
+                          trailing: const Icon(Icons.chevron_left),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => PublicProfileScreen(userId: link["teacherId"]),
+                              ),
+                            );
+                          },
+                        )),
+                  ],
+                ),
+              ),
 
             // Nudge: if the student never finished linking with a teacher
             // (e.g. they closed the app mid-onboarding), always give them a

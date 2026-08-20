@@ -14,8 +14,16 @@ class NotificationsScreen extends StatelessWidget {
         return Icons.check_circle;
       case "booking_rejected":
         return Icons.cancel;
+      case "booking_requested":
+        return Icons.event_note;
+      case "booking_cancelled":
+        return Icons.event_busy;
       case "plan_update":
         return Icons.flag_rounded;
+      case "admin_message":
+        return Icons.priority_high_rounded;
+      case "teacher_message":
+        return Icons.record_voice_over;
       default:
         return Icons.notifications;
     }
@@ -27,8 +35,16 @@ class NotificationsScreen extends StatelessWidget {
         return Colors.green;
       case "booking_rejected":
         return Colors.red;
+      case "booking_requested":
+        return Colors.blue;
+      case "booking_cancelled":
+        return Colors.grey;
       case "plan_update":
         return Colors.teal;
+      case "admin_message":
+        return Colors.red;
+      case "teacher_message":
+        return Colors.orange;
       default:
         return Colors.blue;
     }
@@ -80,21 +96,52 @@ class NotificationsScreen extends StatelessWidget {
               final data = doc.data() as Map<String, dynamic>;
               final type = data["type"] ?? "general";
               final isRead = data["read"] == true;
+              final isImportant = type == "admin_message";
 
               return Card(
                 elevation: isRead ? 1 : 3,
-                color: isRead ? Colors.white : const Color(0xffF0F6FF),
+                color: isImportant
+                    ? Colors.red.shade50
+                    : (isRead ? Colors.white : const Color(0xffF0F6FF)),
                 margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: isImportant
+                      ? const BorderSide(color: Colors.red, width: 1.3)
+                      : BorderSide.none,
+                ),
                 child: ListTile(
                   onTap: () => doc.reference.update({"read": true}),
                   leading: CircleAvatar(
                     backgroundColor: _colorFor(type).withOpacity(0.15),
                     child: Icon(_iconFor(type), color: _colorFor(type)),
                   ),
-                  title: Text(
-                    data["title"] ?? "",
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  title: Row(
+                    children: [
+                      if (isImportant) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            "هام",
+                            style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      Expanded(
+                        child: Text(
+                          data["title"] ?? "",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: isImportant ? Colors.red.shade900 : null,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -112,7 +159,10 @@ class NotificationsScreen extends StatelessWidget {
                       : Container(
                           width: 10,
                           height: 10,
-                          decoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle),
+                          decoration: BoxDecoration(
+                            color: isImportant ? Colors.red : Colors.blue,
+                            shape: BoxShape.circle,
+                          ),
                         ),
                 ),
               );

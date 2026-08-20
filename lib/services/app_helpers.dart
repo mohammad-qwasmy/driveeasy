@@ -218,6 +218,58 @@ const List<Map<String, String>> defaultPlanSteps = [
 ];
 
 
+/// Submits (or updates) a student's 1-5 star rating for a teacher and
+/// atomically recomputes the teacher's average rating + rating count on
+/// their user document, so profiles always show a true, up-to-date
+/// average — never a fake/static number.
+Future<void> rateTeacher({
+  required String teacherId,
+  required String studentId,
+  required int stars,
+}) async {
+  final firestore = FirebaseFirestore.instance;
+  final ratingRef =
+      firestore.collection("teacher_ratings").doc("${studentId}_$teacherId");
+  final teacherRef = firestore.collection("users").doc(teacherId);
+
+  await firestore.runTransaction((transaction) async {
+    final teacherSnap = await transaction.get(teacherRef);
+    final ratingSnap = await transaction.get(ratingRef);
+
+    final teacherData = teacherSnap.data() as Map<String, dynamic>? ?? {};
+    final double currentAvg = ((teacherData["rating"] ?? 0) as num).toDouble();
+    final int currentCount = ((teacherData["ratingCount"] ?? 0) as num).toInt();
+
+    double newAvg;
+    int newCount;
+
+    if (ratingSnap.exists) {
+      final oldStars =
+          (((ratingSnap.data() as Map<String, dynamic>)["stars"] ?? 0) as num)
+              .toInt();
+      final totalSum = (currentAvg * currentCount) - oldStars + stars;
+      newCount = currentCount == 0 ? 1 : currentCount;
+      newAvg = newCount == 0 ? 0 : totalSum / newCount;
+    } else {
+      final totalSum = (currentAvg * currentCount) + stars;
+      newCount = currentCount + 1;
+      newAvg = totalSum / newCount;
+    }
+
+    transaction.set(ratingRef, {
+      "studentId": studentId,
+      "teacherId": teacherId,
+      "stars": stars,
+      "createdAt": Timestamp.now(),
+    });
+
+    transaction.update(teacherRef, {
+      "rating": newAvg,
+      "ratingCount": newCount,
+    });
+  });
+}
+
 /// Makes sure a learning plan exists for [planKey] — normally the id of a
 /// specific student↔teacher link (a student can have more than one teacher,
 /// one per license type, so the plan is scoped per relationship, not just
