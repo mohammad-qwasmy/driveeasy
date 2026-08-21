@@ -31,7 +31,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? teacherSchoolName;
 
   @override
+  void initState() {
+    super.initState();
+    // Same safety net as the login screen: strip any whitespace or hidden
+    // bidi direction marks the instant they appear in the email field.
+    emailController.addListener(_stripSpacesFromEmail);
+  }
+
+  void _stripSpacesFromEmail() {
+    final text = emailController.text;
+    if (!text.contains(" ") && !text.contains("\u200E") && !text.contains("\u200F")) {
+      return;
+    }
+    final cleaned = text.replaceAll(RegExp(r'[\s\u200E\u200F]'), "");
+    final newOffset = (emailController.selection.baseOffset - (text.length - cleaned.length))
+        .clamp(0, cleaned.length);
+    emailController.value = TextEditingValue(
+      text: cleaned,
+      selection: TextSelection.collapsed(offset: newOffset),
+    );
+  }
+
+  @override
   void dispose() {
+    emailController.removeListener(_stripSpacesFromEmail);
     nameController.dispose();
     emailController.dispose();
     phoneController.dispose();
@@ -188,21 +211,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       (value == null || value.isEmpty) ? "أدخل الاسم الكامل" : null,
                 ),
                 const SizedBox(height: 20),
-                TextFormField(
-                  controller: emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  textCapitalization: TextCapitalization.none,
-                  autofillHints: const [AutofillHints.email],
-                  decoration: InputDecoration(
-                    labelText: tr("email"),
-                    prefixIcon: const Icon(Icons.email),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                Directionality(
+                  textDirection: TextDirection.ltr,
+                  child: TextFormField(
+                    controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    textCapitalization: TextCapitalization.none,
+                    textAlign: TextAlign.left,
+                    enableSuggestions: false,
+                    decoration: InputDecoration(
+                      labelText: tr("email"),
+                      prefixIcon: const Icon(Icons.email),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) return "أدخل البريد الإلكتروني";
+                      if (!value.trim().contains("@")) return "البريد الإلكتروني غير صحيح";
+                      return null;
+                    },
                   ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) return "أدخل البريد الإلكتروني";
-                    if (!value.trim().contains("@")) return "البريد الإلكتروني غير صحيح";
-                    return null;
-                  },
                 ),
                 const SizedBox(height: 20),
                 TextFormField(
@@ -217,39 +244,47 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       (value == null || value.isEmpty) ? "أدخل رقم الهاتف" : null,
                 ),
                 const SizedBox(height: 20),
-                TextFormField(
-                  controller: passwordController,
-                  obscureText: hidePassword,
-                  decoration: InputDecoration(
-                    labelText: tr("password"),
-                    prefixIcon: const Icon(Icons.lock),
-                    suffixIcon: IconButton(
-                      icon: Icon(hidePassword ? Icons.visibility_off : Icons.visibility),
-                      onPressed: () => setState(() => hidePassword = !hidePassword),
+                Directionality(
+                  textDirection: TextDirection.ltr,
+                  child: TextFormField(
+                    controller: passwordController,
+                    obscureText: hidePassword,
+                    textAlign: TextAlign.left,
+                    decoration: InputDecoration(
+                      labelText: tr("password"),
+                      prefixIcon: const Icon(Icons.lock),
+                      suffixIcon: IconButton(
+                        icon: Icon(hidePassword ? Icons.visibility_off : Icons.visibility),
+                        onPressed: () => setState(() => hidePassword = !hidePassword),
+                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
                     ),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return "أدخل كلمة المرور";
+                      if (value.length < 6) return "يجب أن تكون كلمة المرور 6 أحرف على الأقل";
+                      return null;
+                    },
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) return "أدخل كلمة المرور";
-                    if (value.length < 6) return "يجب أن تكون كلمة المرور 6 أحرف على الأقل";
-                    return null;
-                  },
                 ),
                 const SizedBox(height: 20),
-                TextFormField(
-                  controller: confirmPasswordController,
-                  obscureText: hideConfirmPassword,
-                  decoration: InputDecoration(
-                    labelText: tr("confirm_password"),
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    suffixIcon: IconButton(
-                      icon: Icon(hideConfirmPassword ? Icons.visibility_off : Icons.visibility),
-                      onPressed: () => setState(() => hideConfirmPassword = !hideConfirmPassword),
+                Directionality(
+                  textDirection: TextDirection.ltr,
+                  child: TextFormField(
+                    controller: confirmPasswordController,
+                    obscureText: hideConfirmPassword,
+                    textAlign: TextAlign.left,
+                    decoration: InputDecoration(
+                      labelText: tr("confirm_password"),
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      suffixIcon: IconButton(
+                        icon: Icon(hideConfirmPassword ? Icons.visibility_off : Icons.visibility),
+                        onPressed: () => setState(() => hideConfirmPassword = !hideConfirmPassword),
+                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
                     ),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                    validator: (value) =>
+                        (value == null || value.isEmpty) ? "أكد كلمة المرور" : null,
                   ),
-                  validator: (value) =>
-                      (value == null || value.isEmpty) ? "أكد كلمة المرور" : null,
                 ),
                 const SizedBox(height: 25),
                 Align(

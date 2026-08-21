@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'register_screen.dart';
 import 'home/home_screen.dart';
@@ -27,42 +26,34 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool isLoading = false;
   bool hidePassword = true;
-  bool rememberMe = false;
-
-  static const _rememberedEmailKey = "remembered_email";
 
   @override
   void initState() {
     super.initState();
-    _loadRememberedEmail();
+    // Belt-and-suspenders: strip any whitespace the instant it appears in
+    // the email field, whatever put it there (keyboard suggestion, bidi
+    // mark, paste, autofill...). Preserves cursor position so typing still
+    // feels normal.
+    emailController.addListener(_stripSpacesFromEmail);
   }
 
-  Future<void> _loadRememberedEmail() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedEmail = prefs.getString(_rememberedEmailKey);
-    if (savedEmail != null && savedEmail.isNotEmpty) {
-      if (!mounted) return;
-      // Guard against a race: if the user already started typing before
-      // this async load resolved, never overwrite what they typed.
-      if (emailController.text.isNotEmpty) return;
-      setState(() {
-        emailController.text = savedEmail;
-        rememberMe = true;
-      });
+  void _stripSpacesFromEmail() {
+    final text = emailController.text;
+    if (!text.contains(" ") && !text.contains("\u200E") && !text.contains("\u200F")) {
+      return;
     }
-  }
-
-  Future<void> _persistRememberMe() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (rememberMe) {
-      await prefs.setString(_rememberedEmailKey, emailController.text.trim());
-    } else {
-      await prefs.remove(_rememberedEmailKey);
-    }
+    final cleaned = text.replaceAll(RegExp(r'[\s\u200E\u200F]'), "");
+    final newOffset = (emailController.selection.baseOffset - (text.length - cleaned.length))
+        .clamp(0, cleaned.length);
+    emailController.value = TextEditingValue(
+      text: cleaned,
+      selection: TextSelection.collapsed(offset: newOffset),
+    );
   }
 
   @override
   void dispose() {
+    emailController.removeListener(_stripSpacesFromEmail);
     emailController.dispose();
     passwordController.dispose();
     super.dispose();
@@ -145,8 +136,6 @@ class _LoginScreenState extends State<LoginScreen> {
           return;
         }
       }
-
-      await _persistRememberMe();
 
       if (!mounted) return;
 
@@ -258,54 +247,69 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 35),
-                  TextFormField(
-                    controller: emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    textCapitalization: TextCapitalization.none,
-                    autofillHints: const [AutofillHints.email],
-                    decoration: InputDecoration(
-                      labelText: tr("email"),
-                      prefixIcon: const Icon(Icons.email),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                  // Forced LTR: email/password are always Latin-script
+                  // content even when the app's overall layout is RTL
+                  // (Arabic). Leaving them under the ambient RTL
+                  // Directionality can make iOS insert an invisible
+                  // bidi direction-mark character as you type — which
+                  // looks like nothing on screen but breaks validation
+                  // until manually deleted. Forcing LTR here removes
+                  // that entirely for these two fields specifically.
+                  Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: TextFormField(
+                      controller: emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      textCapitalization: TextCapitalization.none,
+                      textAlign: TextAlign.left,
+                      // Disables iOS's QuickType suggestion bar for this field.
+                      // That bar is what silently inserts a trailing space
+                      // when a suggested word/email is tapped or auto-applied
+                      // while typing — turning it off removes the one
+                      // remaining source of stray spaces, without touching
+                      // autofillHints (already removed) or autocorrect.
+                      enableSuggestions: false,
+                      decoration: InputDecoration(
+                        labelText: tr("email"),
+                        prefixIcon: const Icon(Icons.email),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return "أدخل البريد الإلكتروني";
+                        }
+                        if (!value.trim().contains("@")) {
+                          return "البريد الإلكتروني غير صحيح";
+                        }
+                        return null;
+                      },
                     ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return "أدخل البريد الإلكتروني";
-                      }
-                      if (!value.trim().contains("@")) {
-                        return "البريد الإلكتروني غير صحيح";
-                      }
-                      return null;
-                    },
                   ),
                   const SizedBox(height: 20),
-                  TextFormField(
-                    controller: passwordController,
-                    obscureText: hidePassword,
-                    decoration: InputDecoration(
-                      labelText: tr("password"),
-                      prefixIcon: const Icon(Icons.lock),
-                      suffixIcon: IconButton(
-                        icon: Icon(hidePassword ? Icons.visibility_off : Icons.visibility),
-                        onPressed: () => setState(() => hidePassword = !hidePassword),
+                  Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: TextFormField(
+                      controller: passwordController,
+                      obscureText: hidePassword,
+                      textAlign: TextAlign.left,
+                      decoration: InputDecoration(
+                        labelText: tr("password"),
+                        prefixIcon: const Icon(Icons.lock),
+                        suffixIcon: IconButton(
+                          icon: Icon(hidePassword ? Icons.visibility_off : Icons.visibility),
+                          onPressed: () => setState(() => hidePassword = !hidePassword),
+                        ),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
                       ),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return "أدخل كلمة المرور";
+                        }
+                        return null;
+                      },
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return "أدخل كلمة المرور";
-                      }
-                      return null;
-                    },
                   ),
                   const SizedBox(height: 10),
-                  CheckboxListTile(
-                    value: rememberMe,
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(tr("remember_me")),
-                    controlAffinity: ListTileControlAffinity.leading,
-                    onChanged: (value) => setState(() => rememberMe = value!),
-                  ),
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
