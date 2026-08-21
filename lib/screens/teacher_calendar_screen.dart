@@ -329,7 +329,10 @@ class _CancelRequestBanner extends StatelessWidget {
 
   Future<void> _approve(BuildContext context) async {
     final firestore = FirebaseFirestore.instance;
-    await firestore.collection("bookings").doc(bookingId).update({"status": "rejected"});
+    await firestore.collection("bookings").doc(bookingId).update({
+      "status": "rejected",
+      "cancelRequested": false,
+    });
     if (slotId.isNotEmpty) {
       await firestore.collection("teacher_slots").doc(slotId).update({"status": "available"});
     }

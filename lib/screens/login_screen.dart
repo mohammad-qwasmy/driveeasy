@@ -8,6 +8,7 @@ import 'home/home_screen.dart';
 import 'teacher_dashborad.dart';
 import 'super_admin_screen.dart';
 import '../services/app_language.dart';
+import '../services/app_helpers.dart';
 import '../services/support_contact.dart';
 import 'email_verification_screen.dart';
 
@@ -103,9 +104,34 @@ class _LoginScreenState extends State<LoginScreen> {
           .doc(userCredential.user!.uid)
           .get();
 
-      String role = userDoc["role"];
+      if (!userDoc.exists) {
+        // The Auth account exists but its Firestore profile is gone —
+        // can't safely route anywhere. Sign out instead of crashing.
+        await FirebaseAuth.instance.signOut();
+        if (!mounted) return;
+        setState(() => isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("تعذر العثور على بيانات هذا الحساب.")),
+        );
+        return;
+      }
 
+      // Read everything through this one safe map from here on — never
+      // through userDoc["field"] directly, since that throws if a field
+      // is missing entirely (not just null), which would otherwise crash
+      // every single login the moment any one field is absent from an
+      // older or edge-case account.
       final userData = userDoc.data() as Map<String, dynamic>? ?? {};
+      String role = userData["role"] ?? "";
+
+      // Sync the teacher_requests doc's emailVerified flag right here too
+      // (not just on the dedicated verification screen) — covers the case
+      // where a teacher verified their email after closing the app, then
+      // came straight back to log in instead of revisiting that screen.
+      if (role == "teacher" && userCredential.user!.emailVerified) {
+        await syncTeacherRequestEmailVerified(userCredential.user!.uid);
+      }
+
       if (userData["isDeleted"] == true) {
         final purgeAtTs = userData["purgeAt"] as Timestamp?;
         final deletedAtTs = userData["deletedAt"] as Timestamp?;
@@ -147,7 +173,7 @@ class _LoginScreenState extends State<LoginScreen> {
           MaterialPageRoute(
             builder: (context) => EmailVerificationScreen(
               role: role,
-              phone: (userDoc.data() as Map<String, dynamic>?)?["phone"] ?? "",
+              phone: userData["phone"] ?? "",
             ),
           ),
         );
@@ -170,8 +196,8 @@ class _LoginScreenState extends State<LoginScreen> {
           MaterialPageRoute(builder: (context) => const HomeScreen()),
         );
       } else if (role == "teacher") {
-        bool isVerified = userDoc["isVerified"] ?? false;
-        bool isBlocked = userDoc["isBlocked"] ?? false;
+        bool isVerified = userData["isVerified"] ?? false;
+        bool isBlocked = userData["isBlocked"] ?? false;
 
         if (isBlocked) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -184,8 +210,28 @@ class _LoginScreenState extends State<LoginScreen> {
         }
 
         if (!isVerified) {
+          // Distinguish "still waiting" from "was actually rejected" —
+          // otherwise a rejected teacher sees the same "under review"
+          // message forever and never finds out their request was denied.
+          String message = "طلب تسجيلك قيد مراجعة الإدارة";
+          try {
+            final requestSnap = await FirebaseFirestore.instance
+                .collection("teacher_requests")
+                .where("teacherId", isEqualTo: userCredential.user!.uid)
+                .limit(1)
+                .get();
+            if (requestSnap.docs.isNotEmpty &&
+                requestSnap.docs.first.data()["status"] == "rejected") {
+              message = "تم رفض طلب تسجيلك كمدرب. يرجى التواصل مع الإدارة لمزيد من المعلومات.";
+            }
+          } catch (_) {
+            // If this lookup fails for any reason, fall back to the
+            // generic "under review" message rather than blocking login.
+          }
+
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("طلب تسجيلك قيد مراجعة الإدارة")),
+            SnackBar(content: Text(message)),
           );
           await FirebaseAuth.instance.signOut();
           return;

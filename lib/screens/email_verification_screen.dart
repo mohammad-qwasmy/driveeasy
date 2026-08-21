@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'phone_verification_screen.dart';
 import 'login_screen.dart';
+import '../services/app_helpers.dart';
 
 /// Real email ownership check using Firebase Auth's own verification link.
 /// The Auth account technically exists as soon as it's created, but it
@@ -44,20 +45,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   }
 
   Future<void> _markVerified(String uid) async {
-    final firestore = FirebaseFirestore.instance;
-
-    await firestore.collection("users").doc(uid).update({"emailVerified": true});
-
-    // Let the admin's pending-teacher list know this request is now real.
-    final requests = await firestore
-        .collection("teacher_requests")
-        .where("teacherId", isEqualTo: uid)
-        .limit(1)
-        .get();
-
-    if (requests.docs.isNotEmpty) {
-      await requests.docs.first.reference.update({"emailVerified": true});
-    }
+    await syncTeacherRequestEmailVerified(uid);
   }
 
   Future<void> _checkVerified({bool silent = false}) async {

@@ -326,7 +326,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         );
                       }
 
-                      final options = snapshot.data!.docs;
+                      final options = snapshot.data!.docs
+                          .where((doc) => (doc.data() as Map<String, dynamic>)["isDeleted"] != true)
+                          .toList();
 
                       return DropdownButtonFormField<String>(
                         value: teacherLicenseType,
@@ -335,10 +337,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           hintText: "اختر نوع الرخصة",
                         ),
                         items: options
-                            .map((doc) => DropdownMenuItem(
-                                  value: doc["name"] as String,
-                                  child: Text(doc["name"]),
-                                ))
+                            .map((doc) {
+                              final licenseName =
+                                  ((doc.data() as Map<String, dynamic>)["name"] ?? "").toString();
+                              return DropdownMenuItem(
+                                value: licenseName,
+                                child: Text(licenseName.isNotEmpty ? licenseName : "بدون اسم"),
+                              );
+                            })
                             .toList(),
                         onChanged: (value) => setState(() => teacherLicenseType = value),
                       );

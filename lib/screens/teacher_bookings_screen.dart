@@ -198,7 +198,10 @@ class _CancelRequestsTab extends StatelessWidget {
     final firestore = FirebaseFirestore.instance;
     final data = booking.data() as Map<String, dynamic>;
 
-    await firestore.collection("bookings").doc(booking.id).update({"status": "rejected"});
+    await firestore.collection("bookings").doc(booking.id).update({
+      "status": "rejected",
+      "cancelRequested": false,
+    });
 
     if ((data["slotId"] ?? "").toString().isNotEmpty) {
       await firestore.collection("teacher_slots").doc(data["slotId"]).update({"status": "available"});

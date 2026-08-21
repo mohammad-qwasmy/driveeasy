@@ -270,6 +270,34 @@ Future<void> rateTeacher({
   });
 }
 
+/// Keeps a teacher's `teacher_requests` doc in sync with the real, verified
+/// state of their email — the admin's pending-teacher list only shows
+/// requests where this is true. This can't rely on being called from one
+/// specific screen (e.g. only the email-verification screen) because a
+/// teacher might close the app, click the verification link later, then
+/// reopen and log in directly — in that case Firebase Auth already shows
+/// emailVerified=true on login, so the app never visits the verification
+/// screen at all. Call this anywhere we notice a teacher's email is
+/// verified, so the admin's list can never get permanently stuck.
+Future<void> syncTeacherRequestEmailVerified(String uid) async {
+  final firestore = FirebaseFirestore.instance;
+
+  await firestore.collection("users").doc(uid).update({"emailVerified": true});
+
+  final requests = await firestore
+      .collection("teacher_requests")
+      .where("teacherId", isEqualTo: uid)
+      .limit(1)
+      .get();
+
+  if (requests.docs.isNotEmpty) {
+    final data = requests.docs.first.data();
+    if (data["emailVerified"] != true) {
+      await requests.docs.first.reference.update({"emailVerified": true});
+    }
+  }
+}
+
 /// Makes sure a learning plan exists for [planKey] — normally the id of a
 /// specific student↔teacher link (a student can have more than one teacher,
 /// one per license type, so the plan is scoped per relationship, not just

@@ -58,19 +58,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (!mounted) return;
 
-    setState(() {
-      name = doc["name"] ?? "";
-      email = doc["email"] ?? "";
-      phone = doc["phone"] ?? "";
-      city = doc["city"] ?? "";
-      licenseType = doc["licenseType"] ?? "";
-      schoolName = fetchedSchoolName;
-      role = doc["role"] ?? "";
-      profileImageBase64 = (doc.data() as Map<String, dynamic>?)?["profileImage"] ?? "";
+    final userData = doc.data() as Map<String, dynamic>? ?? {};
 
-      bookings = doc["bookings"] ?? 0;
-      lessons = doc["lessons"] ?? 0;
-      rating = ((doc["rating"] ?? 0) as num).toDouble();
+    setState(() {
+      name = userData["name"] ?? "";
+      email = userData["email"] ?? "";
+      phone = userData["phone"] ?? "";
+      city = userData["city"] ?? "";
+      licenseType = userData["licenseType"] ?? "";
+      schoolName = fetchedSchoolName;
+      role = userData["role"] ?? "";
+      profileImageBase64 = userData["profileImage"] ?? "";
+
+      bookings = userData["bookings"] ?? 0;
+      lessons = userData["lessons"] ?? 0;
+      rating = ((userData["rating"] ?? 0) as num).toDouble();
 
       isLoading = false;
     });

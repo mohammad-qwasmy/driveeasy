@@ -75,7 +75,9 @@ class _LicenseTypeScreenState extends State<LicenseTypeScreen> {
               }
 
               final licenses = snapshot.data!.docs
-                  .where((doc) => !existingTypes.contains(doc["name"]))
+                  .where((doc) => (doc.data() as Map<String, dynamic>)["isDeleted"] != true)
+                  .where((doc) =>
+                      !existingTypes.contains((doc.data() as Map<String, dynamic>)["name"]))
                   .toList();
 
               if (licenses.isEmpty) {
@@ -99,20 +101,22 @@ class _LicenseTypeScreenState extends State<LicenseTypeScreen> {
                         itemCount: licenses.length,
                         itemBuilder: (context, index) {
                           final license = licenses[index];
+                          final licenseName =
+                              ((license.data() as Map<String, dynamic>)["name"] ?? "").toString();
                           bool selected = selectedLicense == license.id;
 
                           return Card(
                             margin: const EdgeInsets.only(bottom: 15),
                             child: ListTile(
                               leading: const CircleAvatar(child: Icon(Icons.directions_car)),
-                              title: Text(license["name"]),
+                              title: Text(licenseName.isNotEmpty ? licenseName : "بدون اسم"),
                               trailing: selected
                                   ? const Icon(Icons.check_circle, color: Colors.green)
                                   : null,
                               onTap: () {
                                 setState(() {
                                   selectedLicense = license.id;
-                                  selectedName = license["name"];
+                                  selectedName = licenseName;
                                 });
                               },
                             ),

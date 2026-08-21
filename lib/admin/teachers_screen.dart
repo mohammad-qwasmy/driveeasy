@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
@@ -119,176 +120,119 @@ class _TeachersScreenState extends State<TeachersScreen> {
                   itemBuilder: (context, index) {
                     final teacher = teachers[index].data() as Map<String, dynamic>;
                     final docId = teachers[index].id;
+                    final isBlocked = teacher["isBlocked"] == true;
+                    final name = (teacher["name"] ?? "").toString().trim();
 
                     return Card(
-                      elevation: 3,
-                      margin: const EdgeInsets.only(bottom: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      elevation: 2,
+                      margin: const EdgeInsets.only(bottom: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      child: ListTile(
+                        leading: _teacherAvatar(teacher["profileImage"]),
+                        title: Text(
+                          name.isNotEmpty ? name : "مدرب بدون اسم",
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Row(
                           children: [
-                            Row(
-                              children: [
-                                const CircleAvatar(
-                                  radius: 20,
-                                  backgroundColor: Color(0xff1565C0),
-                                  child: Icon(Icons.person, color: Colors.white, size: 20),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    teacher["name"] ?? "",
-                                    style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.bold),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
+                            Icon(
+                              isBlocked ? Icons.cancel : Icons.verified,
+                              color: isBlocked ? Colors.red : Colors.green,
+                              size: 14,
                             ),
-                            const SizedBox(height: 10),
-                            _detailLine(Icons.email, teacher["email"] ?? ""),
-                            _detailLine(Icons.phone, teacher["phone"] ?? ""),
-                            _detailLine(Icons.location_city, teacher["city"] ?? ""),
-                            _detailLine(Icons.badge, teacher["licenseType"] ?? ""),
-                            if ((teacher["schoolId"] ?? "").toString().isNotEmpty)
-                              FutureBuilder<DocumentSnapshot>(
-                                future: FirebaseFirestore.instance
-                                    .collection("schools")
-                                    .doc(teacher["schoolId"])
-                                    .get(),
-                                builder: (context, schoolSnap) {
-                                  final schoolName = (schoolSnap.data?.data()
-                                      as Map<String, dynamic>?)?["name"] ?? "";
-                                  return _detailLine(Icons.school, schoolName);
-                                },
+                            const SizedBox(width: 4),
+                            Text(
+                              isBlocked ? "الحساب معطل" : "الحساب مفعل",
+                              style: TextStyle(
+                                color: isBlocked ? Colors.red : Colors.green,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12.5,
                               ),
-                            _detailLine(Icons.calendar_today, _formatDate(teacher["createdAt"])),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: ElevatedButton.icon(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor:
-                                          teacher["isBlocked"] == true ? Colors.green : Colors.orange,
-                                      padding: const EdgeInsets.symmetric(vertical: 8),
-                                    ),
-                                    onPressed: () async {
-                                      final isBlocked = teacher["isBlocked"] == true;
-                                      final confirmed = await showDialog<bool>(
-                                        context: context,
-                                        builder: (ctx) => AlertDialog(
-                                          title: Text(isBlocked ? "تفعيل المدرب" : "تعطيل المدرب"),
-                                          content: Text(
-                                            isBlocked
-                                                ? "هل أنت متأكد من تفعيل حساب ${teacher["name"] ?? ""}؟"
-                                                : "هل أنت متأكد من تعطيل حساب ${teacher["name"] ?? ""}؟ لن يتمكن من تسجيل الدخول.",
-                                          ),
-                                          actions: [
-                                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("إلغاء")),
-                                            ElevatedButton(
-                                              onPressed: () => Navigator.pop(ctx, true),
-                                              child: const Text("تأكيد"),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-
-                                      if (confirmed != true) return;
-
-                                      await users.doc(docId).update({
-                                        "isBlocked": !isBlocked,
-                                      });
-                                    },
-                                    icon: Icon(
-                                      teacher["isBlocked"] == true ? Icons.check : Icons.block,
-                                      color: Colors.white,
-                                      size: 16,
-                                    ),
-                                    label: Text(
-                                      teacher["isBlocked"] == true ? "تفعيل" : "تعطيل",
-                                      style: const TextStyle(color: Colors.white, fontSize: 13),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: ElevatedButton.icon(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.red,
-                                      padding: const EdgeInsets.symmetric(vertical: 8),
-                                    ),
-                                    onPressed: () async {
-                                      final confirmed = await showDialog<bool>(
-                                        context: context,
-                                        builder: (ctx) => AlertDialog(
-                                          title: const Text("حذف المدرب"),
-                                          content: Text(
-                                            "هل أنت متأكد من حذف حساب ${teacher["name"] ?? ""} نهائيًا؟ هذا الإجراء لا يمكن التراجع عنه.",
-                                          ),
-                                          actions: [
-                                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("إلغاء")),
-                                            TextButton(
-                                              onPressed: () => Navigator.pop(ctx, true),
-                                              child: const Text("حذف", style: TextStyle(color: Colors.red)),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-
-                                      if (confirmed != true) return;
-
-                                      await FirebaseFirestore.instance
-                                          .collection("users")
-                                          .doc(docId)
-                                          .update({
-                                        "isDeleted": true,
-                                        "deletedAt": Timestamp.now(),
-                                      });
-
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              "تم حذف المدرب، يمكنك استعادته من قائمة المحذوفين",
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    },
-                                    icon: const Icon(Icons.delete, color: Colors.white, size: 16),
-                                    label: const Text("حذف", style: TextStyle(color: Colors.white, fontSize: 13)),
-                                  ),
-                                ),
-                              ],
                             ),
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: (teacher["isBlocked"] ?? false)
-                                    ? Colors.red.shade50
-                                    : Colors.green.shade50,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
+                          ],
+                        ),
+                        trailing: PopupMenuButton<String>(
+                          onSelected: (value) async {
+                            if (value == "toggle") {
+                              final confirmed = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: Text(isBlocked ? "تفعيل المدرب" : "تعطيل المدرب"),
+                                  content: Text(
+                                    isBlocked
+                                        ? "هل أنت متأكد من تفعيل حساب $name؟"
+                                        : "هل أنت متأكد من تعطيل حساب $name؟ لن يتمكن من تسجيل الدخول.",
+                                  ),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("إلغاء")),
+                                    ElevatedButton(
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      child: const Text("تأكيد"),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (confirmed != true) return;
+                              await users.doc(docId).update({"isBlocked": !isBlocked});
+                            } else if (value == "delete") {
+                              final confirmed = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text("حذف المدرب"),
+                                  content: Text(
+                                    "سيتم تعطيل حساب $name فوراً. تبقى بياناته محفوظة لمدة 30 يوماً "
+                                    "يمكنه خلالها استعادة حسابه بنفسه عبر تسجيل الدخول، وبعدها يُحذف نهائياً "
+                                    "بشكل لا رجعة فيه.",
+                                  ),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("إلغاء")),
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      child: const Text("حذف", style: TextStyle(color: Colors.red)),
+                                    ),
+                                  ],
+                                ),
+                              );
+
+                              if (confirmed != true) return;
+
+                              final now = DateTime.now();
+                              await FirebaseFirestore.instance.collection("users").doc(docId).update({
+                                "isDeleted": true,
+                                "deletedAt": Timestamp.fromDate(now),
+                                "purgeAt": Timestamp.fromDate(now.add(const Duration(days: 30))),
+                              });
+
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      "تم حذف المدرب، وسيبقى قابلاً للاستعادة لمدة 30 يوماً",
+                                    ),
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            PopupMenuItem(
+                              value: "toggle",
                               child: Row(
-                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(
-                                    (teacher["isBlocked"] ?? false) ? Icons.cancel : Icons.verified,
-                                    color: (teacher["isBlocked"] ?? false) ? Colors.red : Colors.green,
-                                    size: 14,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    (teacher["isBlocked"] ?? false) ? "الحساب معطل" : "الحساب مفعل",
-                                    style: TextStyle(
-                                      color: (teacher["isBlocked"] ?? false) ? Colors.red : Colors.green,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                    ),
-                                  ),
+                                  Icon(isBlocked ? Icons.check_circle : Icons.block,
+                                      color: isBlocked ? Colors.green : Colors.orange, size: 18),
+                                  const SizedBox(width: 8),
+                                  Text(isBlocked ? "تفعيل" : "تعطيل"),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem(
+                              value: "delete",
+                              child: Row(
+                                children: [
+                                  Icon(Icons.delete, color: Colors.red, size: 18),
+                                  SizedBox(width: 8),
+                                  Text("حذف"),
                                 ],
                               ),
                             ),
@@ -303,6 +247,24 @@ class _TeachersScreenState extends State<TeachersScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _teacherAvatar(String? profileImage) {
+    if (profileImage != null && profileImage.isNotEmpty) {
+      try {
+        return CircleAvatar(
+          radius: 22,
+          backgroundImage: MemoryImage(base64Decode(profileImage)),
+        );
+      } catch (_) {
+        // Fall through to the default icon avatar below.
+      }
+    }
+    return const CircleAvatar(
+      radius: 22,
+      backgroundColor: Color(0xff1565C0),
+      child: Icon(Icons.person, color: Colors.white),
     );
   }
 
@@ -356,21 +318,29 @@ class _DeletedTeachersScreen extends StatelessWidget {
             itemBuilder: (context, index) {
               final doc = deleted[index];
               final data = doc.data() as Map<String, dynamic>;
+              final name = (data["name"] ?? "").toString().trim();
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
                 child: ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: Colors.grey,
-                    child: Icon(Icons.person, color: Colors.white),
+                  leading: _teacherDeletedAvatar(data["profileImage"]),
+                  title: Text(name.isNotEmpty ? name : "مدرب بدون اسم"),
+                  subtitle: const Row(
+                    children: [
+                      Icon(Icons.cancel, color: Colors.red, size: 14),
+                      SizedBox(width: 4),
+                      Text(
+                        "الحساب معطل (محذوف)",
+                        style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12.5),
+                      ),
+                    ],
                   ),
-                  title: Text(data["name"] ?? ""),
-                  subtitle: Text(data["email"] ?? ""),
                   trailing: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                     onPressed: () async {
                       await users.doc(doc.id).update({
                         "isDeleted": false,
                         "deletedAt": FieldValue.delete(),
+                        "purgeAt": FieldValue.delete(),
                       });
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -389,4 +359,18 @@ class _DeletedTeachersScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+Widget _teacherDeletedAvatar(String? profileImage) {
+  if (profileImage != null && profileImage.isNotEmpty) {
+    try {
+      return CircleAvatar(backgroundImage: MemoryImage(base64Decode(profileImage)));
+    } catch (_) {
+      // Fall through to the default icon avatar below.
+    }
+  }
+  return const CircleAvatar(
+    backgroundColor: Colors.grey,
+    child: Icon(Icons.person, color: Colors.white),
+  );
 }

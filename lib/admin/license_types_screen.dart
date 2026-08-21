@@ -16,7 +16,9 @@ class _LicenseTypesScreenState extends State<LicenseTypesScreen> {
 
     final TextEditingController controller =
     TextEditingController(
-      text: document != null ? document["name"] : "",
+      text: document != null
+          ? ((document.data() as Map<String, dynamic>?)?["name"] ?? "").toString()
+          : "",
     );
 
     showDialog(
@@ -180,6 +182,7 @@ class _LicenseTypesScreenState extends State<LicenseTypesScreen> {
             itemBuilder: (context, index) {
 
               final license = licenses[index];
+              final licenseName = ((license.data() as Map<String, dynamic>)["name"] ?? "").toString();
 
               return Card(
 
@@ -196,7 +199,7 @@ class _LicenseTypesScreenState extends State<LicenseTypesScreen> {
                   ),
 
                   title: Text(
-                    license["name"],
+                    licenseName.isNotEmpty ? licenseName : "رخصة بدون اسم",
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                     ),
@@ -233,7 +236,7 @@ class _LicenseTypesScreenState extends State<LicenseTypesScreen> {
                             builder: (ctx) => AlertDialog(
                               title: const Text("حذف نوع الرخصة"),
                               content: Text(
-                                "هل تريد حذف \"${license["name"]}\"؟ يمكنك استعادتها لاحقاً من قائمة المحذوفات.",
+                                "هل تريد حذف \"$licenseName\"؟ يمكنك استعادتها لاحقاً من قائمة المحذوفات.",
                               ),
                               actions: [
                                 TextButton(
@@ -321,6 +324,8 @@ class _DeletedLicensesScreen extends StatelessWidget {
             itemCount: deleted.length,
             itemBuilder: (context, index) {
               final doc = deleted[index];
+              final licenseData = doc.data() as Map<String, dynamic>;
+              final licenseName = (licenseData["name"] ?? "").toString().trim();
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
                 child: ListTile(
@@ -328,7 +333,7 @@ class _DeletedLicensesScreen extends StatelessWidget {
                     backgroundColor: Colors.grey,
                     child: Icon(Icons.drive_eta, color: Colors.white),
                   ),
-                  title: Text(doc["name"] ?? ""),
+                  title: Text(licenseName.isNotEmpty ? licenseName : "رخصة بدون اسم"),
                   trailing: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                     onPressed: () async {

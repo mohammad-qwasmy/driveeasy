@@ -120,7 +120,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   );
                 }
 
-                final options = snapshot.data!.docs;
+                final options = snapshot.data!.docs
+                    .where((doc) => (doc.data() as Map<String, dynamic>)["isDeleted"] != true)
+                    .toList();
 
                 return DropdownButtonFormField<String>(
                   value: licenseType,
@@ -129,10 +131,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     border: const OutlineInputBorder(),
                   ),
                   items: options
-                      .map((doc) => DropdownMenuItem(
-                            value: doc["name"] as String,
-                            child: Text(doc["name"]),
-                          ))
+                      .map((doc) {
+                        final licenseName =
+                            ((doc.data() as Map<String, dynamic>)["name"] ?? "").toString();
+                        return DropdownMenuItem(
+                          value: licenseName,
+                          child: Text(licenseName.isNotEmpty ? licenseName : "بدون اسم"),
+                        );
+                      })
                       .toList(),
                   onChanged: (value) => setState(() => licenseType = value),
                 );

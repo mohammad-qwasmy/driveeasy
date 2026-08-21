@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../widgets/count_label.dart';
+import '../services/app_helpers.dart';
 
 class RegistrationRequestsScreen extends StatefulWidget {
   const RegistrationRequestsScreen({super.key});
@@ -95,6 +96,13 @@ class _RegistrationRequestsScreenState extends State<RegistrationRequestsScreen>
                                     .collection("teacher_requests")
                                     .doc(request.id)
                                     .update({"status": "accepted"});
+
+                                await sendNotification(
+                                  userId: data["teacherId"],
+                                  title: "تم قبول طلب تسجيلك",
+                                  body: "مرحباً بك! يمكنك الآن تسجيل الدخول واستخدام التطبيق كمدرب.",
+                                  type: "registration_approved",
+                                );
                               },
                             ),
                             IconButton(
@@ -104,6 +112,13 @@ class _RegistrationRequestsScreenState extends State<RegistrationRequestsScreen>
                                     .collection("teacher_requests")
                                     .doc(request.id)
                                     .update({"status": "rejected"});
+
+                                await sendNotification(
+                                  userId: data["teacherId"],
+                                  title: "تم رفض طلب تسجيلك",
+                                  body: "للأسف لم تتم الموافقة على طلب تسجيلك كمدرب. تواصل مع الإدارة لمزيد من المعلومات.",
+                                  type: "registration_rejected",
+                                );
                               },
                             ),
                           ],

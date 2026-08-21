@@ -6,6 +6,7 @@ import 'login_screen.dart';
 import 'home/home_screen.dart';
 import 'teacher_dashborad.dart';
 import 'super_admin_screen.dart';
+import '../services/app_helpers.dart';
 import '../services/support_contact.dart';
 
 /// Branded launch screen: shows the DriveEasy splash artwork for a couple of
@@ -102,6 +103,14 @@ class _SplashScreenState extends State<SplashScreen> {
       } else if (role == "student") {
         _goTo(const HomeScreen());
       } else if (role == "teacher") {
+        // Same emailVerified→teacher_requests sync as the login screen —
+        // needed here too since a returning, already-signed-in teacher
+        // lands directly on this auto-login path, skipping login_screen.dart
+        // entirely.
+        if (user.emailVerified) {
+          await syncTeacherRequestEmailVerified(user.uid);
+        }
+
         final bool isVerified = data["isVerified"] ?? false;
         final bool isBlocked = data["isBlocked"] ?? false;
 

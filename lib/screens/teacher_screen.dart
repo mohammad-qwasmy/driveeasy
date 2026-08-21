@@ -31,8 +31,47 @@ class _TeacherScreenState extends State<TeacherScreen> {
     if (selectedTeacherId == null) return;
 
     final studentId = FirebaseAuth.instance.currentUser!.uid;
+    final firestore = FirebaseFirestore.instance;
 
-    await FirebaseFirestore.instance.collection("student_teacher_requests").add({
+    // Guard against duplicates: a student re-visiting this screen and
+    // tapping send again would otherwise create a second pending request
+    // (or, once approved, a second active link) for the exact same
+    // student+teacher+license combination.
+    final existingPending = await firestore
+        .collection("student_teacher_requests")
+        .where("studentId", isEqualTo: studentId)
+        .where("teacherId", isEqualTo: selectedTeacherId)
+        .where("licenseType", isEqualTo: widget.licenseType)
+        .where("status", isEqualTo: "pending")
+        .limit(1)
+        .get();
+
+    if (existingPending.docs.isNotEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("لديك طلب تسجيل قيد المراجعة مع هذا المدرب بالفعل")),
+      );
+      return;
+    }
+
+    final existingLink = await firestore
+        .collection("student_teacher_links")
+        .where("studentId", isEqualTo: studentId)
+        .where("teacherId", isEqualTo: selectedTeacherId)
+        .where("licenseType", isEqualTo: widget.licenseType)
+        .where("status", isEqualTo: "active")
+        .limit(1)
+        .get();
+
+    if (existingLink.docs.isNotEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("أنت مسجل بالفعل مع هذا المدرب")),
+      );
+      return;
+    }
+
+    await firestore.collection("student_teacher_requests").add({
       "studentId": studentId,
       "teacherId": selectedTeacherId,
       "teacherName": selectedTeacherName,
@@ -79,7 +118,9 @@ class _TeacherScreenState extends State<TeacherScreen> {
             );
           }
 
-          final teachers = snapshot.data!.docs;
+          final teachers = snapshot.data!.docs
+              .where((doc) => (doc.data() as Map<String, dynamic>)["isDeleted"] != true)
+              .toList();
 
           return Padding(
             padding: const EdgeInsets.all(20),
