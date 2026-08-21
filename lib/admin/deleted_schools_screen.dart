@@ -47,6 +47,10 @@ class DeletedSchoolsScreen extends StatelessWidget {
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance.collection("schools").snapshots(),
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(child: Text("حدث خطأ: ${snapshot.error}"));
+          }
+
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -79,10 +83,21 @@ class DeletedSchoolsScreen extends StatelessWidget {
                   ),
                   title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Text("تاريخ الحذف: ${_formatDate(data["deletedAt"])}"),
-                  trailing: ElevatedButton.icon(
-                    onPressed: () => _restoreSchool(context, doc.id, name),
-                    icon: const Icon(Icons.restore, size: 18),
-                    label: const Text("استعادة"),
+                  // A ListTile's trailing widget must fit inside a bounded
+                  // width, or Flutter throws a layout assertion (which
+                  // showed up in production as a plain white/blank screen
+                  // instead of a normal error page). Wrapping this button
+                  // in a fixed-width SizedBox guarantees that width.
+                  trailing: SizedBox(
+                    width: 110,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                      onPressed: () => _restoreSchool(context, doc.id, name),
+                      icon: const Icon(Icons.restore, size: 16),
+                      label: const Text("استعادة", style: TextStyle(fontSize: 12.5)),
+                    ),
                   ),
                 ),
               );

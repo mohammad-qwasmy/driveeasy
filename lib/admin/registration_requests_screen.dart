@@ -19,7 +19,6 @@ class _RegistrationRequestsScreenState extends State<RegistrationRequestsScreen>
     final requestsStream = FirebaseFirestore.instance
         .collection("teacher_requests")
         .where("status", isEqualTo: "pending")
-        .where("emailVerified", isEqualTo: true)
         .snapshots();
 
     return Scaffold(
@@ -73,13 +72,43 @@ class _RegistrationRequestsScreenState extends State<RegistrationRequestsScreen>
                   itemBuilder: (context, index) {
                     final request = requests[index];
                     final data = request.data() as Map<String, dynamic>;
+                    final teacherId = data["teacherId"] ?? "";
 
-                    return Card(
+                    // We used to hide the whole card until the teacher's
+                    // emailVerified flag came back true, but that flag is
+                    // just a copy that only syncs when the teacher happens
+                    // to log in or revisit the verification screen — so a
+                    // request could sit here invisible (and unapprovable)
+                    // indefinitely even after the teacher verified. Now we
+                    // always show the request with the teacher's name, and
+                    // just surface verification status as a badge instead
+                    // of hiding the card.
+                    return FutureBuilder<DocumentSnapshot>(
+                      future: FirebaseFirestore.instance.collection("users").doc(teacherId).get(),
+                      builder: (context, userSnap) {
+                        final userData = userSnap.data?.data() as Map<String, dynamic>? ?? {};
+                        final isEmailVerified = userData["emailVerified"] == true;
+
+                        return Card(
                       margin: const EdgeInsets.all(10),
                       child: ListTile(
                         title: Text(data["teacherName"] ?? ""),
-                        subtitle: Text(
-                          "${data["phone"] ?? ""}${(data["licenseType"] ?? "").toString().isNotEmpty ? ' · ${data["licenseType"]}' : ''}",
+                        subtitle: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                "${data["phone"] ?? ""}${(data["licenseType"] ?? "").toString().isNotEmpty ? ' · ${data["licenseType"]}' : ''}",
+                              ),
+                            ),
+                            if (!isEmailVerified)
+                              const Padding(
+                                padding: EdgeInsets.only(right: 6),
+                                child: Text(
+                                  "لم يتحقق من بريده بعد",
+                                  style: TextStyle(color: Colors.orange, fontSize: 11.5, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                          ],
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -124,6 +153,8 @@ class _RegistrationRequestsScreenState extends State<RegistrationRequestsScreen>
                           ],
                         ),
                       ),
+                    );
+                      },
                     );
                   },
                 );

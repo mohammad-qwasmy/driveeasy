@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
 import '../widgets/count_label.dart';
+import '../screens/public_profile_screen.dart';
 
 class TeachersScreen extends StatefulWidget {
   const TeachersScreen({super.key});
@@ -128,6 +129,14 @@ class _TeachersScreenState extends State<TeachersScreen> {
                       margin: const EdgeInsets.only(bottom: 8),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       child: ListTile(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => PublicProfileScreen(userId: docId),
+                            ),
+                          );
+                        },
                         leading: _teacherAvatar(teacher["profileImage"]),
                         title: Text(
                           name.isNotEmpty ? name : "مدرب بدون اسم",
@@ -291,10 +300,12 @@ class _DeletedTeachersScreen extends StatelessWidget {
         backgroundColor: Colors.blue,
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: users
-            .where("role", isEqualTo: "teacher")
-            .where("isDeleted", isEqualTo: true)
-            .snapshots(),
+        // A single-field query (role only) always works without needing a
+        // Firestore composite index; we filter isDeleted on the client
+        // instead of combining two equality filters server-side, which
+        // was silently failing (and showing a blank page) whenever the
+        // matching composite index hadn't been created for this project.
+        stream: users.where("role", isEqualTo: "teacher").snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -304,7 +315,9 @@ class _DeletedTeachersScreen extends StatelessWidget {
             return Center(child: Text("حدث خطأ: ${snapshot.error}"));
           }
 
-          final deleted = snapshot.data?.docs ?? [];
+          final deleted = (snapshot.data?.docs ?? [])
+              .where((doc) => (doc.data() as Map<String, dynamic>)["isDeleted"] == true)
+              .toList();
 
           if (deleted.isEmpty) {
             return const Center(
@@ -334,8 +347,16 @@ class _DeletedTeachersScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-                  trailing: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                  // Fixed width avoids the ListTile layout assertion that
+                  // otherwise renders as a blank white screen (same fix as
+                  // deleted_schools_screen.dart).
+                  trailing: SizedBox(
+                    width: 110,
+                    child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
                     onPressed: () async {
                       await users.doc(doc.id).update({
                         "isDeleted": false,
@@ -349,7 +370,8 @@ class _DeletedTeachersScreen extends StatelessWidget {
                       }
                     },
                     icon: const Icon(Icons.restore, color: Colors.white, size: 16),
-                    label: const Text("استعادة", style: TextStyle(color: Colors.white)),
+                    label: const Text("استعادة", style: TextStyle(color: Colors.white, fontSize: 12.5)),
+                    ),
                   ),
                 ),
               );

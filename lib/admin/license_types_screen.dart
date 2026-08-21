@@ -334,18 +334,27 @@ class _DeletedLicensesScreen extends StatelessWidget {
                     child: Icon(Icons.drive_eta, color: Colors.white),
                   ),
                   title: Text(licenseName.isNotEmpty ? licenseName : "رخصة بدون اسم"),
-                  trailing: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                    onPressed: () async {
-                      await restore(doc.id);
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("تم استرجاع نوع الرخصة وكل بياناته")),
-                        );
-                      }
-                    },
-                    icon: const Icon(Icons.restore, color: Colors.white, size: 16),
-                    label: const Text("استعادة", style: TextStyle(color: Colors.white)),
+                  // Fixed width avoids the ListTile layout assertion that
+                  // otherwise renders as a blank white screen (same fix as
+                  // deleted_schools_screen.dart).
+                  trailing: SizedBox(
+                    width: 110,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                      onPressed: () async {
+                        await restore(doc.id);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("تم استرجاع نوع الرخصة وكل بياناته")),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.restore, color: Colors.white, size: 16),
+                      label: const Text("استعادة", style: TextStyle(color: Colors.white, fontSize: 12.5)),
+                    ),
                   ),
                 ),
               );
