@@ -236,12 +236,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   controller: phoneController,
                   keyboardType: TextInputType.phone,
                   decoration: InputDecoration(
-                    labelText: tr("phone"),
+                    labelText: "${tr("phone")} (اختياري)",
                     prefixIcon: const Icon(Icons.phone),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
                   ),
-                  validator: (value) =>
-                      (value == null || value.isEmpty) ? "أدخل رقم الهاتف" : null,
+                  // Apple's Guideline 5.1.1(v) review flagged phone number as
+                  // personal information that isn't essential to the app's
+                  // core functionality, so it must be optional rather than
+                  // required at registration.
+                  validator: (_) => null,
                 ),
                 const SizedBox(height: 20),
                 Directionality(
