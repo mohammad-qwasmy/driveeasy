@@ -138,6 +138,7 @@ const Map<String, Map<String, String>> _strings = {
   "manage_license_types_sub": {"ar": "إدارة أنواع رخص القيادة", "en": "Manage driving license types", "he": "ניהול סוגי רישיון נהיגה"},
   "schools": {"ar": "المدارس", "en": "Schools", "he": "בתי ספר"},
   "manage_schools_sub": {"ar": "إنشاء وإدارة مدارس القيادة", "en": "Create and manage driving schools", "he": "יצירה וניהול בתי ספר לנהיגה"},
+  "manage_students_sub": {"ar": "عرض جميع الطلاب وبياناتهم ومدربيهم", "en": "View all students, their data and teachers", "he": "צפייה בכל התלמידים, הנתונים שלהם והמדריכים שלהם"},
   "super_admins": {"ar": "حسابات الأدمن", "en": "Admin Accounts", "he": "חשבונות מנהל"},
   "manage_super_admins_sub": {"ar": "إنشاء وإدارة حسابات الأدمن والسوبر أدمن", "en": "Create and manage admin & super admin accounts", "he": "יצירה וניהול חשבונות מנהל ומנהל-על"},
   "logout_sub": {"ar": "تسجيل الخروج من التطبيق", "en": "Sign out from the application", "he": "התנתקות מהאפליקציה"},

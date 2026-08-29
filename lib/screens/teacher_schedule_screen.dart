@@ -107,7 +107,7 @@ class _DayScheduleEditorState extends State<_DayScheduleEditor> {
 
   bool isSaving = false;
 
-  final List<String> durations = ["30", "40", "45", "60", "90", "120"];
+  final List<String> durations = ["30", "40", "45", "60", "80", "90", "120"];
   final List<String> breakDurations = ["0", "5", "10", "15", "20", "30", "45", "60"];
   final List<String> counts = ["0", "1", "2", "3", "4", "5", "6"];
 

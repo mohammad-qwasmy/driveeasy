@@ -6,6 +6,7 @@ import 'registration_requests_screen.dart';
 import 'teachers_screen.dart';
 import 'license_types_screen.dart';
 import 'schools_screen.dart';
+import 'students_screen.dart';
 import '../services/app_language.dart';
 import 'super_admins_screen.dart';
 
@@ -109,6 +110,21 @@ class AdminManagementScreen extends StatelessWidget {
                         context,
                         MaterialPageRoute(
                           builder: (_) => const SchoolsScreen(),
+                        ),
+                      );
+                    },
+                  ),
+
+                  AdminButton(
+                    icon: Icons.groups,
+                    title: tr("students"),
+                    subtitle: tr("manage_students_sub"),
+                    color: Colors.indigo,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AdminStudentsScreen(),
                         ),
                       );
                     },

@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'student_plan_screen.dart';
 import 'chat_screen.dart';
 import 'student_details_screen.dart';
+import 'assign_lesson_screen.dart';
 import '../services/app_helpers.dart';
 
 /// "طلابي" has 3 tabs: current active students, students who passed their
@@ -315,6 +316,29 @@ class _ActiveStudentsTabState extends State<_ActiveStudentsTab> {
                                       },
                                     ),
                                   ],
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  child: OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(foregroundColor: const Color(0xff1565C0)),
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => AssignLessonScreen(
+                                            studentId: studentId,
+                                            studentName: name,
+                                            licenseType: licenseType,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    icon: const Icon(Icons.event_available, size: 16),
+                                    label: const Text("تعيين درس لهذا الطالب", style: TextStyle(fontSize: 12.5)),
+                                  ),
                                 ),
                               ),
                             ],

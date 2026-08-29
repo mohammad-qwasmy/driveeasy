@@ -22,6 +22,9 @@ return Colors.red;
 case "completed":
 return Colors.blue;
 
+case "teacherProposed":
+return const Color(0xff1565C0);
+
 default:
 return Colors.grey;
 }
@@ -40,6 +43,9 @@ return "مرفوض";
 
 case "completed":
 return "مكتمل";
+
+case "teacherProposed":
+return "مقترح من المدرب";
 
 default:
 return status;

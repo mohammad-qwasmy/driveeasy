@@ -222,6 +222,14 @@ class _TeacherCalendarScreenState extends State<TeacherCalendarScreen> {
                                         _AttendanceButton(bookingId: doc.id, attendance: data["attendance"]),
                                     ],
                                   ),
+                                  if (isPastOrToday) ...[
+                                    const SizedBox(height: 8),
+                                    _LessonFeedbackSection(
+                                      bookingId: doc.id,
+                                      existingFeedback: data["lessonFeedback"],
+                                      studentId: data["studentId"] ?? "",
+                                    ),
+                                  ],
                                   const SizedBox(height: 8),
                                   if (data["cancelRequested"] == true)
                                     _CancelRequestBanner(
@@ -449,3 +457,101 @@ class _AttendanceButton extends StatelessWidget {
     );
   }
 }
+
+/// Lets the teacher write (or edit) a short note about how a specific
+/// past/today lesson went, once it's over. The student sees it on their
+/// side under that lesson, in "مواعيدي" → "السابقة".
+class _LessonFeedbackSection extends StatelessWidget {
+  final String bookingId;
+  final dynamic existingFeedback;
+  final String studentId;
+
+  const _LessonFeedbackSection({
+    required this.bookingId,
+    required this.existingFeedback,
+    required this.studentId,
+  });
+
+  Future<void> _openEditor(BuildContext context) async {
+    final controller = TextEditingController(text: (existingFeedback ?? "").toString());
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("ملاحظات على الدرس"),
+        content: TextField(
+          controller: controller,
+          maxLines: 4,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: "كيف كان أداء الطالب في هذا الدرس؟",
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("إلغاء")),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text("حفظ"),
+          ),
+        ],
+      ),
+    );
+
+    if (result == null) return;
+
+    await FirebaseFirestore.instance.collection("bookings").doc(bookingId).update({
+      "lessonFeedback": result,
+    });
+
+    if (result.isNotEmpty && studentId.isNotEmpty) {
+      await sendNotification(
+        userId: studentId,
+        title: "ملاحظة جديدة على درسك",
+        body: "أضاف مدربك ملاحظة على درسك، افتح صفحة مواعيدي لمشاهدتها.",
+        type: "lesson_feedback",
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasFeedback = (existingFeedback ?? "").toString().trim().isNotEmpty;
+
+    if (!hasFeedback) {
+      return Align(
+        alignment: Alignment.centerRight,
+        child: TextButton.icon(
+          onPressed: () => _openEditor(context),
+          icon: const Icon(Icons.note_add_outlined, size: 16),
+          label: const Text("إضافة ملاحظة على الدرس", style: TextStyle(fontSize: 12)),
+        ),
+      );
+    }
+
+    return InkWell(
+      onTap: () => _openEditor(context),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.blue.shade50,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.blue.shade100),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.sticky_note_2_outlined, size: 15, color: Color(0xff1565C0)),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(existingFeedback.toString(), style: const TextStyle(fontSize: 12)),
+            ),
+            const Icon(Icons.edit, size: 14, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

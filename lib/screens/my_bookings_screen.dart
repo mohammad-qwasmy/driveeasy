@@ -9,6 +9,8 @@ import '../services/app_helpers.dart';
 /// - القادمة: approved lessons whose real time hasn't passed yet
 /// - السابقة: approved lessons whose real time has passed (shows attendance)
 /// - المعلقة: still awaiting the teacher's approval
+/// - مقترحة: a lesson the teacher proposed directly, awaiting the
+///   student's accept/reject
 ///
 /// Cancelled/rejected bookings never show anywhere. Once approved, a
 /// booking moves between "القادمة" and "السابقة" purely based on real
@@ -28,13 +30,14 @@ class MyBookingsScreen extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return DefaultTabController(
-            length: 3,
+            length: 4,
             child: Scaffold(
               appBar: AppBar(
                 title: const Text("مواعيدي"),
                 centerTitle: true,
                 bottom: const TabBar(
-                  tabs: [Tab(text: "القادمة"), Tab(text: "السابقة"), Tab(text: "المعلقة")],
+                  isScrollable: true,
+                  tabs: [Tab(text: "القادمة"), Tab(text: "السابقة"), Tab(text: "المعلقة"), Tab(text: "مقترحة")],
                 ),
               ),
               body: const Center(child: CircularProgressIndicator()),
@@ -69,6 +72,8 @@ class MyBookingsScreen extends StatelessWidget {
 
         final pending = notCancelled.where((d) => (d.data() as Map<String, dynamic>)["status"] == "pending").toList()..sort(_cmp);
 
+        final proposed = notCancelled.where((d) => (d.data() as Map<String, dynamic>)["status"] == "teacherProposed").toList()..sort(_cmp);
+
         final approved = notCancelled.where((d) => (d.data() as Map<String, dynamic>)["status"] == "approved").toList();
 
         final upcoming = approved.where((d) {
@@ -90,16 +95,18 @@ class MyBookingsScreen extends StatelessWidget {
           ..sort(_cmp);
 
         return DefaultTabController(
-          length: 3,
+          length: 4,
           child: Scaffold(
             appBar: AppBar(
               title: const Text("مواعيدي"),
               centerTitle: true,
               bottom: TabBar(
+                isScrollable: true,
                 tabs: [
                   Tab(text: "القادمة (${upcoming.length})"),
                   Tab(text: "السابقة (${past.length})"),
                   Tab(text: "المعلقة (${pending.length})"),
+                  Tab(text: "مقترحة (${proposed.length})"),
                 ],
               ),
             ),
@@ -108,6 +115,7 @@ class MyBookingsScreen extends StatelessWidget {
                 _BookingsList(docs: upcoming, kind: _ListKind.upcoming, emptyMessage: "لا يوجد دروس قادمة"),
                 _BookingsList(docs: past, kind: _ListKind.past, emptyMessage: "لا يوجد دروس سابقة بعد"),
                 _BookingsList(docs: pending, kind: _ListKind.pending, emptyMessage: "لا يوجد حجوزات معلقة"),
+                _BookingsList(docs: proposed, kind: _ListKind.proposed, emptyMessage: "لا يوجد دروس مقترحة من المدرب"),
               ],
             ),
           ),
@@ -117,7 +125,7 @@ class MyBookingsScreen extends StatelessWidget {
   }
 }
 
-enum _ListKind { upcoming, past, pending }
+enum _ListKind { upcoming, past, pending, proposed }
 
 class _BookingsList extends StatelessWidget {
   final List<QueryDocumentSnapshot> docs;
@@ -212,6 +220,65 @@ class _BookingsList extends StatelessWidget {
     );
   }
 
+  Future<void> _respondToProposed(BuildContext context, QueryDocumentSnapshot booking, bool accept) async {
+    final data = booking.data() as Map<String, dynamic>;
+    final slotId = (data["slotId"] ?? "").toString();
+    final teacherId = (data["teacherId"] ?? "").toString();
+    final dateStr = (data["date"] ?? "").toString();
+    final time = (data["time"] ?? "").toString();
+
+    if (!accept) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text("رفض الدرس المقترح"),
+          content: const Text("هل تريد رفض هذا الدرس المقترح من المدرب؟"),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("تراجع")),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text("رفض", style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+
+    final firestore = FirebaseFirestore.instance;
+
+    if (accept) {
+      await firestore.collection("bookings").doc(booking.id).update({"status": "approved"});
+      if (slotId.isNotEmpty) {
+        await firestore.collection("teacher_slots").doc(slotId).update({"status": "booked"});
+      }
+      if (teacherId.isNotEmpty) {
+        await sendNotification(
+          userId: teacherId,
+          title: "تمت الموافقة على الدرس المقترح",
+          body: "وافق الطالب على الدرس المقترح يوم ${dateStr.isNotEmpty ? formatIsoDateArabic(dateStr) : ''} الساعة $time.",
+          type: "lesson_accepted",
+        );
+      }
+    } else {
+      await firestore.collection("bookings").doc(booking.id).update({
+        "status": "rejected",
+        "rejectedByStudent": true,
+      });
+      if (slotId.isNotEmpty) {
+        await firestore.collection("teacher_slots").doc(slotId).update({"status": "available"});
+      }
+      if (teacherId.isNotEmpty) {
+        await sendNotification(
+          userId: teacherId,
+          title: "تم رفض الدرس المقترح",
+          body: "رفض الطالب الدرس المقترح يوم ${dateStr.isNotEmpty ? formatIsoDateArabic(dateStr) : ''} الساعة $time. يمكنك إعادة إرساله أو تعيينه لطالب آخر من صفحة طلبات الحجز.",
+          type: "lesson_rejected_by_student",
+        );
+      }
+    }
+  }
+
   Widget _card(BuildContext context, QueryDocumentSnapshot booking) {
     final data = booking.data() as Map<String, dynamic>;
     final status = data["status"] ?? "pending";
@@ -224,6 +291,9 @@ class _BookingsList extends StatelessWidget {
     if (status == "approved") {
       statusColor = Colors.green;
       statusText = "مؤكد";
+    } else if (status == "teacherProposed") {
+      statusColor = const Color(0xff1565C0);
+      statusText = "مقترح من المدرب";
     }
 
     return Card(
@@ -307,8 +377,82 @@ class _BookingsList extends StatelessWidget {
                 Text("${data["price"]} ₪", style: const TextStyle(fontSize: 12.5)),
               ],
             ),
+            if ((data["teacherNote"] ?? "").toString().trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.amber.shade200),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.sticky_note_2_outlined, size: 15, color: Colors.orange),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        "ملاحظة المدرب: ${data["teacherNote"]}",
+                        style: const TextStyle(fontSize: 12, color: Colors.black87),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            if (kind == _ListKind.past && (data["lessonFeedback"] ?? "").toString().trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.blue.shade100),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.rate_review_outlined, size: 15, color: Color(0xff1565C0)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        "ملاحظة المدرب على الدرس: ${data["lessonFeedback"]}",
+                        style: const TextStyle(fontSize: 12, color: Colors.black87),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 10),
-            if (kind != _ListKind.past) ...[
+            if (kind == _ListKind.proposed) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                      onPressed: () => _respondToProposed(context, booking, true),
+                      icon: const Icon(Icons.check, size: 16),
+                      label: const Text("موافقة", style: TextStyle(fontSize: 12.5)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                      onPressed: () => _respondToProposed(context, booking, false),
+                      icon: const Icon(Icons.close, size: 16),
+                      label: const Text("رفض", style: TextStyle(fontSize: 12.5)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
+            if (kind != _ListKind.past && kind != _ListKind.proposed) ...[
               if (cancelRequested)
                 Container(
                   width: double.infinity,
