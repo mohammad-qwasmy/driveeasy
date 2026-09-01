@@ -10,6 +10,25 @@
       "client_info": {
         "mobilesdk_app_id": "1:1091221758432:android:0d6649d12d6f52ab238b85",
         "android_client_info": {
+          "package_name": "com.example.drive_esey"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDhZmzhoi8bg7sveU0v2x6AxaRcsdrCRVg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1091221758432:android:47d71e26a0e26cad238b85",
+        "android_client_info": {
           "package_name": "com.mkawasmi.driveeasy"
         }
       },
